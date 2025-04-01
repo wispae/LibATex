@@ -1,0 +1,15 @@
+{
+  "type": "code",
+  "modid": "libatex",
+  "name": "LibATex",
+  "authors": [
+    "Nanotect"
+  ],
+  "description": "Allows for the adding of animated textures. Does nothing on its own.",
+  "version": "0.5.1",
+  "dependencies": {
+    "game": "*"
+  },
+  "requiredOnClient": true,
+  "requiredOnServer": false
+}
