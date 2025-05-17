@@ -151,15 +151,14 @@ namespace LibATex.Extensions
 
 	public static class TextureAtlasManagerExtensions
 	{
-		public static void RenderTextureIntoAtlasPersistent(this ITextureAtlasAPI self, int atlasTextureNumber, LoadedTexture fromTexture, float sourceX, float sourceY, float sourceWidth, float sourceHeight, float targetX, float targetY, int offsetX = 0, int offsetY = 0)
+		public static void RenderTextureIntoAtlasPersistent(this ITextureAtlasAPI self, ICoreClientAPI api, int atlasTextureNumber, LoadedTexture fromTexture, float sourceX, float sourceY, float sourceWidth, float sourceHeight, float targetX, float targetY, int offsetX = 0, int offsetY = 0)
 		{
 			if (Thread.CurrentThread.ManagedThreadId != RuntimeEnv.MainThreadId)
 			{
 				throw new InvalidOperationException("Attempting to blit a texture into the atlas outside of the main thread. This is not possible as we have only one OpenGL context!");
 			}
 
-			Type atlasType = typeof(TextureAtlasManager);
-			ClientMain game = atlasType.GetField("game", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(self) as ClientMain;
+            ClientMain game = api.World as ClientMain;
 
 			LoadedTexture atlasTexture = self.AtlasTextures[atlasTextureNumber];
 

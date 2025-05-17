@@ -22,8 +22,13 @@ namespace LibATex.Util
 		private static object _gLock = new();
 		private static AnimatedTextureManager instance;
 
-		private List<AnimatedTexture> loadedTextures;
+        // private List<AnimatedTexture> loadedTextures;
+        // Dictionary for keeping all textures for quick lookup
+        private Dictionary<ulong, AnimatedTexture> loadedTextures;
+        // List for more efficient iterating over running textures
 		private List<AnimatedTexture> runningTextures;
+
+        private ulong idKeeper = 0;
 
 		public ITextureAtlasAPI AnimatedTextureAtlas
 		{
@@ -41,7 +46,8 @@ namespace LibATex.Util
 		{
 			this.capi = capi;
 			this.logger = logger;
-			loadedTextures = new List<AnimatedTexture>();
+            // loadedTextures = new List<AnimatedTexture>();
+            loadedTextures = new Dictionary<ulong, AnimatedTexture>();
 			runningTextures = new List<AnimatedTexture>();
 			// AnimatedTextureAtlas = new AnimatedTextureAtlasManager(capi.World as ClientMain);
 		}
@@ -49,10 +55,24 @@ namespace LibATex.Util
 		public AnimatedTexture RegisterAnimatedTexture(AssetLocation animatedTextureLocation, AssetLocation targetTextureLocation, AnimatedTextureConfig configuration)
 		{
 			AnimatedTexture t = new AnimatedTexture(capi, AnimatedTextureAtlas, animatedTextureLocation, targetTextureLocation, configuration);
-			loadedTextures.Add(t);
+            ulong id = GetNextUniqueId();
+            t.Id = id;
+            loadedTextures.Add(id, t);
 
 			return t;
 		}
+
+        protected ulong GetNextUniqueId()
+        {
+            bool idFound = false;
+
+            while (!idFound)
+            {
+                idFound = !loadedTextures.ContainsKey(++idKeeper);
+            }
+
+            return idKeeper;
+        }
 
 		/// <summary>
 		/// Registers an animated texture to the animated texture manager
@@ -61,14 +81,15 @@ namespace LibATex.Util
 		/// <returns></returns>
 		public AnimatedTexture RegisterAnimatedTexture(AnimatedTexture t)
 		{
-			loadedTextures.Add(t);
+            ulong id = GetNextUniqueId();
+			loadedTextures.Add(id, t);
 
 			return t;
 		}
 
 		public void StartAllAnimations()
 		{
-			foreach (AnimatedTexture loadedTexture in loadedTextures)
+			foreach (AnimatedTexture loadedTexture in loadedTextures.Values)
 			{
 				if (!runningTextures.Contains(loadedTexture))
 				{
@@ -76,18 +97,18 @@ namespace LibATex.Util
 				}
 			}
 
-			loadedTextures.Clear();
+			// loadedTextures.Clear();
 		}
 
 		public void StopAllAnimations()
 		{
-			foreach (AnimatedTexture runningTexture in runningTextures)
+			/*foreach (AnimatedTexture runningTexture in runningTextures)
 			{
 				if (!loadedTextures.Contains(runningTexture))
 				{
 					loadedTextures.Add(runningTexture);
 				}
-			}
+			}*/
 
 			runningTextures.Clear();
 		}
@@ -100,7 +121,7 @@ namespace LibATex.Util
 		{
 			AssetLocation sourceLocation = new AssetLocation(c.AnimationQualifiedPath);
 			AssetLocation targetLocation = new AssetLocation(c.TargetQualifiedPath);
-			logger.Debug($"Creating animated texture: {sourceLocation.ToString()} => {targetLocation.ToString()}");
+			// logger.Debug($"Creating animated texture: {sourceLocation.ToString()} => {targetLocation.ToString()}");
 
 			return RegisterAnimatedTexture(sourceLocation, targetLocation, c);
 		}
@@ -200,7 +221,7 @@ namespace LibATex.Util
 					logger.Debug($"Exception encountered when trying to advance frame of animated texture {t.Name}");
 					// uh oh! better not do that again!
 					runningTextures.Remove(t);
-					loadedTextures.Add(t);
+					// loadedTextures.Add(t);
 				}
 			}
 

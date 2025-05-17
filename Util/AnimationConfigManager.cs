@@ -50,7 +50,7 @@ namespace LibATex.Util
 		public bool LoadConfigForModId(string modId)
 		{
 			configBaseLocation.Domain = modId;
-			logger.Debug($"Scanning mod {modId} for animated textures at location {configBaseLocation}");
+			// logger.Debug($"Scanning mod {modId} for animated textures at location {configBaseLocation}");
 			ModAnimationConfig c;
 
 			try

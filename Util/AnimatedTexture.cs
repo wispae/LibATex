@@ -35,6 +35,8 @@ namespace LibATex.Util
 		public int Rows;
 		public int Dimension;
 
+        public ulong Id;
+
 		public bool IsActive
 		{
 			get;
@@ -475,7 +477,7 @@ namespace LibATex.Util
 			float x2 = targetTexturePosition.x1;
 			float y2 = targetTexturePosition.y1;
 
-			targetAtlas.RenderTextureIntoAtlasPersistent(targetTexturePosition.atlasNumber, animatedTexture, x1, y1, framewidth, frameheight, x2, y2, targetOffsetX, targetOffsetY);
+			targetAtlas.RenderTextureIntoAtlasPersistent(capi, targetTexturePosition.atlasNumber, animatedTexture, x1, y1, framewidth, frameheight, x2, y2, targetOffsetX, targetOffsetY);
 		}
 
 		/// <summary>
