@@ -6,7 +6,7 @@
     "Nanotect"
   ],
   "description": "Allows for the adding of animated textures. Does nothing on its own.",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "dependencies": {
     "game": "*"
   },
