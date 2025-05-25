@@ -10,13 +10,19 @@ using Vintagestory.API.Common;
 
 namespace LibATex.Model
 {
-	public class PeriodicTextureConfig
+	public class PeriodicConfig
 	{
 		public float LoopDelay = 0f;
-		public float LoopDelayMin = 0f;
-		public float LoopDelayMax = 0f;
+		public float LoopDelayMin = 0.1f;
+		public float LoopDelayMax = 1.0f;
 		public bool IsRandom = false;
 	}
+
+    public class TimeConfig
+    {
+        public float TimeOffset = 0f;
+        public float TimeMultiplier = 1f;
+    }
 
 	public class AnimatedTextureConfig
 	{
@@ -62,7 +68,8 @@ namespace LibATex.Model
 		public int PaddingX = 0;
 		public int PaddingY = 0;
 
-		public PeriodicTextureConfig PeriodicOptions;
+		public PeriodicConfig PeriodicOptions;
+        public TimeConfig TimeOptions;
 
 		public string ModId;
 
@@ -79,62 +86,7 @@ namespace LibATex.Model
 
 			AnimationType = EnumAnimatedTextureType.AnimatedTexture;
 
-			// Pre-validate optional parameters, as some of these have an effect
-			// on other options
-			if (AnimationModDomain == string.Empty)
-			{
-				if (AnimationQualifiedPath != string.Empty && AnimationQualifiedPath.Contains(':'))
-				{
-					AnimationModDomain = AnimationQualifiedPath.Split(':', 2)[0];
-				} else
-				{
-					AnimationModDomain = ModId;
-				}
-			}
-			if (TargetModDomain == string.Empty)
-			{
-				if (TargetQualifiedPath != string.Empty && TargetQualifiedPath.Contains(':'))
-				{
-					TargetModDomain = TargetQualifiedPath.Split(':', 2)[0];
-				} else
-				{
-					TargetModDomain = ModId;
-				}
-			}
-
-			if (!capi.ModLoader.IsModEnabled(AnimationModDomain) || !capi.ModLoader.IsModEnabled(TargetModDomain))
-			{
-				logger.Debug($"Mod with id {AnimationModDomain} or {TargetModDomain} is not enabled, using own modId");
-				AnimationModDomain = ModId;
-				TargetModDomain = ModId;
-			}
-
-			atlasType = AnimatedTextureAtlasManager.AtlasStringToAtlasEnum(atlasTypeString);
-
-			// Validate textures
-			if (!GenerateQualifiedAnimationPath())
-			{
-				logger.Debug($"Animation texture {AnimationQualifiedPath} for {ModId} does not seem to exist, skipping...");
-				return false;
-			}
-
-			if (!GenerateQualifiedTargetPath())
-			{
-				logger.Debug($"Target texture {TargetQualifiedPath} for {ModId} does not seem to exist, skipping...");
-				return false;
-			}
-
-			// Validate required options
-			if (NumColumns < 1 || NumRows < 1)
-			{
-				logger.Debug($"Number of rows or columns is less than 1, skipping...");
-				return false;
-			}
-
-			if (NumFrames < 1)
-			{
-				NumFrames = NumColumns * NumRows;
-			}
+            if (!ValidateRequiredOptions()) return false;
 
 			// Set default minimum to 20ms (50Hz)
 			if (SecondsPerFrame < 0.02f) SecondsPerFrame = 0.02f;
@@ -155,7 +107,11 @@ namespace LibATex.Model
 				IsPartial = true;
 			}
 
-			if (PeriodicOptions != null)
+            if (TimeOptions != null)
+            {
+                AnimationType = AnimationType | EnumAnimatedTextureType.TimeAnimatedTexture;
+            }
+            else if (PeriodicOptions != null)
 			{
 				AnimationType = AnimationType | EnumAnimatedTextureType.PeriodicAnimatedTexture;
 
@@ -167,6 +123,70 @@ namespace LibATex.Model
 			
 			return true;
 		}
+
+        private bool ValidateRequiredOptions()
+        {
+            // Pre-validate optional parameters, as some of these have an effect
+            // on other options
+            if (AnimationModDomain == string.Empty)
+            {
+                if (AnimationQualifiedPath != string.Empty && AnimationQualifiedPath.Contains(':'))
+                {
+                    AnimationModDomain = AnimationQualifiedPath.Split(':', 2)[0];
+                }
+                else
+                {
+                    AnimationModDomain = ModId;
+                }
+            }
+            if (TargetModDomain == string.Empty)
+            {
+                if (TargetQualifiedPath != string.Empty && TargetQualifiedPath.Contains(':'))
+                {
+                    TargetModDomain = TargetQualifiedPath.Split(':', 2)[0];
+                }
+                else
+                {
+                    TargetModDomain = ModId;
+                }
+            }
+
+            if (!capi.ModLoader.IsModEnabled(AnimationModDomain) || !capi.ModLoader.IsModEnabled(TargetModDomain))
+            {
+                logger.Debug($"Mod with id {AnimationModDomain} or {TargetModDomain} is not enabled, using own modId");
+                AnimationModDomain = ModId;
+                TargetModDomain = ModId;
+            }
+
+            atlasType = AnimatedTextureAtlasManager.AtlasStringToAtlasEnum(atlasTypeString);
+
+            // Validate textures
+            if (!GenerateQualifiedAnimationPath())
+            {
+                logger.Debug($"Animation texture {AnimationQualifiedPath} for {ModId} does not seem to exist, skipping...");
+                return false;
+            }
+
+            if (!GenerateQualifiedTargetPath())
+            {
+                logger.Debug($"Target texture {TargetQualifiedPath} for {ModId} does not seem to exist, skipping...");
+                return false;
+            }
+
+            // Validate required options
+            if (NumColumns < 1 || NumRows < 1)
+            {
+                logger.Debug($"Number of rows or columns is less than 1, skipping...");
+                return false;
+            }
+
+            if (NumFrames < 1)
+            {
+                NumFrames = NumColumns * NumRows;
+            }
+
+            return true;
+        }
 
 		public bool GenerateQualifiedAnimationPath()
 		{

@@ -66,7 +66,7 @@ namespace LibATex
 			configManager.ValidateConfigs();
 			configManager.FilterUniqueTargetTextures();
 
-			Mod.Logger.Debug($"Loaded {configManager.GetTotalAnimationCount()} animated texture configurations from {capi.ModLoader.Mods.Count()} mods");
+			Mod.Logger.Notification($"Loaded {configManager.GetTotalAnimationCount()} animated texture configurations from {capi.ModLoader.Mods.Count()} mods");
 			hasLoaded = true;
 
 			capi.Event.BlockTexturesLoaded += OnTexturesLoaded;
@@ -114,10 +114,10 @@ namespace LibATex
 
 		private void OnPlayerJoined(IPlayer player)
 		{
-			Mod.Logger.Debug("Player joined, attempting to start manager...");
 			if (player.PlayerUID == capi.World.Player.PlayerUID)
 			{
-				if (manager != null && manager.IsInitialized)
+                Mod.Logger.Debug("Player joined, attempting to start manager...");
+                if (manager != null && manager.IsInitialized)
 				{
 					manager.StartTicking();
 				}

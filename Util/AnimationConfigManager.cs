@@ -35,6 +35,7 @@ namespace LibATex.Util
 			configBaseLocation.Path = "config/animatedtextures.json";
 
 			configSerializerSettings = new JsonSerializerSettings();
+            configSerializerSettings.ObjectCreationHandling = ObjectCreationHandling.Replace;
 			configSerializerSettings.MissingMemberHandling = MissingMemberHandling.Ignore;
 		}
 

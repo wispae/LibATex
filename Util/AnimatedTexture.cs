@@ -12,7 +12,7 @@ using Vintagestory.Client.NoObf;
 
 namespace LibATex.Util
 {
-	public class AnimatedTexture
+	public class AnimatedTexture : IAnimatedTexture
 	{
 		protected AssetLocation animatedLocation;
 		protected AssetLocation targetLocation;
@@ -31,11 +31,29 @@ namespace LibATex.Util
 		protected int currentColumn;
 		protected int currentRow;
 
-		public int Columns;
-		public int Rows;
+        protected float frameheight;
+        protected float framewidth;
+
+        protected float frameTime;
+
+        internal int numFrames;
+
+        protected int targetOffsetY;
+
+        public int Columns
+        {
+            get; set;
+        }
+		public int Rows
+        {
+            get; set;
+        }
 		public int Dimension;
 
-        public ulong Id;
+        public ulong Id
+        {
+            get; internal set;
+        }
 
 		public bool IsActive
 		{
@@ -96,7 +114,14 @@ namespace LibATex.Util
 				numFrames = value;
 			}
 		}
-		internal int numFrames;
+
+        public int CurrentFrame
+        {
+            get
+            {
+                return (CurrentRow * Columns) + CurrentColumn;
+            }
+        }
 
 		public int TargetOffsetX
 		{
@@ -132,16 +157,24 @@ namespace LibATex.Util
 				targetOffsetY = value;
 			}
 		}
-		protected int targetOffsetY;
+
+        public int PixelHeight
+        {
+            get => animatedTexture.Height;
+        }
+
+        public int PixelWidth
+        {
+            get => animatedTexture.Width;
+        }
 
 		public int PaddingX = 0;
 		public int PaddingY = 0;
 
-		public float TimePerFrame;
-		protected float frameTime;
-
-		protected float frameheight;
-		protected float framewidth;
+		public float TimePerFrame
+        {
+            get; set;
+        }
 
 		public string Name;
 
@@ -415,10 +448,6 @@ namespace LibATex.Util
 			PaddingY = configuration.PaddingY;
 
 			Name = $"{configuration.AnimationQualifiedPath} (id: {animatedTexture.TextureId}) => {configuration.TargetQualifiedPath} (id: {targetTexture.TextureId})";
-			// logger.Debug(Name);
-			// logger.Debug($"Animated position: ({animatedTexturePosition.x1}, {animatedTexturePosition.y1}) | Target position: ({targetTexturePosition.x1}, {targetTexturePosition.y1})");
-			// logger.Debug($"Animated texture dimensions (calculated): {(animatedTexturePosition.x2 - animatedTexturePosition.x1) * animatedTexture.Width} by {(animatedTexturePosition.y2 - animatedTexturePosition.y1) * animatedTexture.Height}");
-			// logger.Debug($"Number of calculated frames: {Columns * Rows}; number of requested frames: {NumFrames}");
 
 			currentColumn = 0;
 			currentRow = 0;
@@ -429,12 +458,10 @@ namespace LibATex.Util
 			availableSpace = animatedTexturePosition.y2 - animatedTexturePosition.y1 - ((float)PaddingY / animatedTexture.Height);
 			frameheight = availableSpace / Rows;
 
-			logger.Debug($"Final frame dimensions for {configuration.AnimationQualifiedPath} should be {framewidth * animatedTexture.Width} by {frameheight * animatedTexture.Height}");
 			IsComplete = true;
-			//logger.Debug("\n================\n");
 		}
 
-		public void Advance(ICoreClientAPI capi, float dt, ref bool didRender)
+		public virtual void Advance(ICoreClientAPI capi, float dt, ref bool didRender)
 		{
 			frameTime += dt;
 			if (frameTime >= TimePerFrame)
@@ -468,6 +495,10 @@ namespace LibATex.Util
 			RenderCurrentFrame(capi);
 		}
 
+        /// <summary>
+        /// Renders the current frame onto the target texture
+        /// </summary>
+        /// <param name="capi"></param>
 		public virtual void RenderCurrentFrame(ICoreClientAPI capi)
 		{
 			float d = animatedTexturePosition.x2 - animatedTexturePosition.x1;

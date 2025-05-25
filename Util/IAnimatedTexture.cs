@@ -21,7 +21,26 @@ namespace LibATex.Util
 
 	public interface IAnimatedTexture
 	{
-		public void Advance(ICoreClientAPI api, float dt, ref bool didRender);
+        public ulong Id { get; }
+        public bool IsActive { get; }
+        public bool IsComplete { get; }
+        public int NumFrames { get; set; }
+        public int CurrentFrame { get; }
+        public int Columns { get; set; }
+        public int Rows { get; set; }
+        public int TargetOffsetX { get; set; }
+        public int TargetOffsetY { get; set; }
+        /// <summary>
+        /// The total height of the animated texture in pixels
+        /// </summary>
+        public int PixelHeight { get; }
+        /// <summary>
+        /// The total width of the animated texture in pixels
+        /// </summary>
+        public int PixelWidth { get; }
+
+        public float TimePerFrame { get; set; }
+        public void Advance(ICoreClientAPI capi, float time, ref bool didRender);
 		public void NextFrame(ICoreClientAPI capi);
 		public void RenderCurrentFrame(ICoreClientAPI capi);
 	}

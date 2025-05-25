@@ -24,9 +24,10 @@ namespace LibATex.Util
 
         // private List<AnimatedTexture> loadedTextures;
         // Dictionary for keeping all textures for quick lookup
-        private Dictionary<ulong, AnimatedTexture> loadedTextures;
+        private Dictionary<ulong, IAnimatedTexture> loadedTextures;
         // List for more efficient iterating over running textures
 		private List<AnimatedTexture> runningTextures;
+        private List<TimeAnimatedTexture> runningTimeTextures;
 
         private ulong idKeeper = 0;
 
@@ -40,21 +41,40 @@ namespace LibATex.Util
 		private ILogger logger;
 
 		public bool IsInitialized = false;
-		private long tickListenerId;
+		private long tickListenerId = -1;
+        private long timeTickListenerId = -1;
 
 		public AnimatedTextureManager(ICoreClientAPI capi, ILogger logger)
 		{
 			this.capi = capi;
 			this.logger = logger;
             // loadedTextures = new List<AnimatedTexture>();
-            loadedTextures = new Dictionary<ulong, AnimatedTexture>();
+            loadedTextures = new Dictionary<ulong, IAnimatedTexture>();
 			runningTextures = new List<AnimatedTexture>();
+            runningTimeTextures = new List<TimeAnimatedTexture>();
 			// AnimatedTextureAtlas = new AnimatedTextureAtlasManager(capi.World as ClientMain);
 		}
 
+        /// <summary>
+        /// Instantiates an animated texture from the provided configuration and adds it to
+        /// the list of loaded animations
+        /// </summary>
+        /// <param name="animatedTextureLocation"></param>
+        /// <param name="targetTextureLocation"></param>
+        /// <param name="configuration"></param>
+        /// <returns></returns>
 		public AnimatedTexture RegisterAnimatedTexture(AssetLocation animatedTextureLocation, AssetLocation targetTextureLocation, AnimatedTextureConfig configuration)
 		{
-			AnimatedTexture t = new AnimatedTexture(capi, AnimatedTextureAtlas, animatedTextureLocation, targetTextureLocation, configuration);
+            AnimatedTexture t;
+            if (configuration.AnimationType.HasFlag(EnumAnimatedTextureType.TimeAnimatedTexture))
+            {
+                t = new TimeAnimatedTexture(capi, AnimatedTextureAtlas, animatedTextureLocation, targetTextureLocation, configuration);
+            } else
+            {
+                t = new AnimatedTexture(capi, AnimatedTextureAtlas, animatedTextureLocation, targetTextureLocation, configuration);
+            }
+
+			// AnimatedTexture t = new AnimatedTexture(capi, AnimatedTextureAtlas, animatedTextureLocation, targetTextureLocation, configuration);
             ulong id = GetNextUniqueId();
             t.Id = id;
             loadedTextures.Add(id, t);
@@ -62,6 +82,10 @@ namespace LibATex.Util
 			return t;
 		}
 
+        /// <summary>
+        /// Gets the next unique animated texture id
+        /// </summary>
+        /// <returns></returns>
         protected ulong GetNextUniqueId()
         {
             bool idFound = false;
@@ -87,30 +111,41 @@ namespace LibATex.Util
 			return t;
 		}
 
+        /// <summary>
+        /// Starts all loaded animations
+        /// </summary>
 		public void StartAllAnimations()
 		{
-			foreach (AnimatedTexture loadedTexture in loadedTextures.Values)
+			foreach (IAnimatedTexture loadedTexture in loadedTextures.Values)
 			{
-				if (!runningTextures.Contains(loadedTexture))
-				{
-					runningTextures.Add(loadedTexture);
-				}
+                switch (loadedTexture)
+                {
+                    case TimeAnimatedTexture tat:
+                        if (!runningTimeTextures.Contains(tat))
+                        {
+                            runningTimeTextures.Add(tat);
+                        }
+                        break;
+                    default:
+                        AnimatedTexture at = loadedTexture as AnimatedTexture;
+                        if (!runningTextures.Contains(at))
+                        {
+                            runningTextures.Add(at);
+                        }
+                        break;
+                }
 			}
 
 			// loadedTextures.Clear();
 		}
 
+        /// <summary>
+        /// Stops all currently running animations
+        /// </summary>
 		public void StopAllAnimations()
 		{
-			/*foreach (AnimatedTexture runningTexture in runningTextures)
-			{
-				if (!loadedTextures.Contains(runningTexture))
-				{
-					loadedTextures.Add(runningTexture);
-				}
-			}*/
-
-			runningTextures.Clear();
+            runningTextures.Clear();
+            runningTimeTextures.Clear();
 		}
 
 		/// <summary>
@@ -121,7 +156,6 @@ namespace LibATex.Util
 		{
 			AssetLocation sourceLocation = new AssetLocation(c.AnimationQualifiedPath);
 			AssetLocation targetLocation = new AssetLocation(c.TargetQualifiedPath);
-			// logger.Debug($"Creating animated texture: {sourceLocation.ToString()} => {targetLocation.ToString()}");
 
 			return RegisterAnimatedTexture(sourceLocation, targetLocation, c);
 		}
@@ -184,17 +218,17 @@ namespace LibATex.Util
 		public void StartTicking()
 		{
 			logger.Debug("Starting texture manager ticking...");
-			logger.Debug("Active textures:");
-			foreach (AnimatedTexture t in runningTextures)
-			{
-				logger.Debug($"{t.Name}");
-			}
-			if (tickListenerId != -1 && runningTextures.Count > 0)
+			if (tickListenerId == -1)
 			{
 				tickListenerId = capi.Event.RegisterGameTickListener(OnGameTick, 50);
-				logger.Debug("Texture manager ticking started!");
 			}
-		}
+            if (timeTickListenerId == -1)
+            {
+                timeTickListenerId = capi.Event.RegisterGameTickListener(OnTimeTick, 1000);
+            }
+
+            logger.Debug("Texture manager ticking started!");
+        }
 
 		public void StopTicking()
 		{
@@ -204,8 +238,15 @@ namespace LibATex.Util
 				capi.Event.UnregisterGameTickListener(tickListenerId);
 				tickListenerId = -1;
 			}
+            if (timeTickListenerId != -1)
+            {
+                capi.Event.UnregisterGameTickListener(timeTickListenerId);
+                timeTickListenerId = -1;
+            }
 		}
 
+
+        List<AnimatedTexture> errorAnimations = new List<AnimatedTexture>();
 		protected void OnGameTick(float delta)
 		{
 			bool didRender = false;
@@ -218,12 +259,19 @@ namespace LibATex.Util
 				}
 				catch
 				{
-					logger.Debug($"Exception encountered when trying to advance frame of animated texture {t.Name}");
-					// uh oh! better not do that again!
-					runningTextures.Remove(t);
-					// loadedTextures.Add(t);
+					logger.Debug($"Exception encountered when trying to advance frame of animated texture {t.Name}, removing from active animations");
+                    errorAnimations.Add(t);
 				}
 			}
+
+            if (errorAnimations.Count > 0)
+            {
+                foreach (AnimatedTexture t in errorAnimations)
+                {
+                    runningTextures.Remove(t);
+                }
+                errorAnimations.Clear();
+            }
 
 			if (didRender)
 			{
@@ -231,11 +279,46 @@ namespace LibATex.Util
 			}
 		}
 
+        List<TimeAnimatedTexture> errorTimeAnimations = new List<TimeAnimatedTexture>();
+        protected void OnTimeTick(float delta)
+        {
+            bool didRender = false;
+            float daytime = capi.World.Calendar.HourOfDay / capi.World.Calendar.HoursPerDay;
+
+            foreach (TimeAnimatedTexture t in runningTimeTextures)
+            {
+                try
+                {
+                    t.Advance(capi, daytime, ref didRender);
+                }
+                catch
+                {
+                    logger.Debug($"Exception encountered when trying to advance frame of time animated texture {t.Name}, removing from active animations");
+                    errorTimeAnimations.Add(t);
+                }
+            }
+
+            if (errorTimeAnimations.Count > 0)
+            {
+                foreach (TimeAnimatedTexture t in errorTimeAnimations)
+                {
+                    runningTimeTextures.Remove(t);
+                }
+                errorTimeAnimations.Clear();
+            }
+
+            if (didRender)
+            {
+                capi.BlockTextureAtlas.RegenMipMaps(0);
+            }
+        }
+
 		public void Dispose()
 		{
 			logger.Debug("Disposing the manager...");
 			StopTicking();
 			runningTextures.Clear();
+            runningTimeTextures.Clear();
 			loadedTextures.Clear();
 			(AnimatedTextureAtlas as AnimatedTextureAtlasManager).Dispose();
 			AnimatedTextureAtlas = null;
